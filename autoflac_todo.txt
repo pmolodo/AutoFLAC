@@ -1,0 +1,4 @@
+add support for rip/write verification
+add support for WavPack and Monkey's Audio
+add support for pars - comment 45
+add support for AccurateRip - comment 90

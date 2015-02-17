@@ -1,0 +1,50 @@
+1.2 (10/16/2006):
+
+  Added support for variable naming schemes
+  Added GUI interface for write mode options
+  Added support for writing CUE sheets that specify .wav files rather than .flac
+  Added option for low priority encoding
+  Added support for EAC's Test and Copy mode
+  Added proper GUI for initial EAC binary selection (if needed)
+  Added new AutoFLAC icon
+  Fixed waiting for EAC to complete encoding of all tracks
+  Fixed waiting for EAC to complete creating CUE sheet
+  Fixed remembering location of EAC binary
+  Fixed bug that may prevent converting FLACs to WAVs before writing
+  Fixed names of some variables to prevent possible conflict
+  Updated GUI button behavor to focus cursor on relevant field after selection
+
+
+1.1 (07/10/2006):
+
+  Added AutoFLAC installer w/ optional FLAC binaries
+  Added option to rip to flac image
+  Added option to embed cue sheet in image
+  Added option to delete external cuesheet when embedding
+  Added option to set temporary directory for writing
+  Added option to apply ReplayGain settings to indivual albums in multi-disc set
+  Added ability to decompress/write flac image
+  Fixed filehandle resource leak
+  Fixed notifycomplete preference bug
+  Fixed data directory numbering for multi-disc sets
+  Fixed waiting for ReplayGain to complete (longer, but more reliable)
+  Fixed artist, album, and genre strings to match EAC's output for invalid characters
+  Updated multi-disc option to add DISCNUMBER tag
+  Updated data copy option to improve data track detection by using cue sheets
+
+
+1.0.1 (06/10/2006):
+
+  Changed error message display for detected glitches
+  Changed EAC startup detection time delay to prevent false error reports
+  Fixed potential whitespace issues in album or artist name
+  Fixed bug preventing ripdir from being modified while AutoFLAC is still running
+  Fixed saved preferences
+  Fixed waiting for all tracks to be compressed
+  Fixed track numbering for multi-disc sets
+  Fixed meta-track file names for multi-disc sets
+
+
+1.0 (06/10/2006):
+
+  Initial release
