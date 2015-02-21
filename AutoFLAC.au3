@@ -46,6 +46,7 @@ global $lowpriority = 0
 global $ejectcomplete = 1
 global $notifycomplete = 1
 global $notifywav = "notify.wav"
+global $skiprip = 0
 
 ; Write options
 global $writetemptype = 'album'
@@ -281,157 +282,159 @@ func ExtractCD()
 	;filewriteline($debug, "$ripdir = " & $ripdir) ;debug
 	;filewriteline($debug, "$metapre = " & $metapre) ;debug
 
-	; Select all tracks
-	if $extractmethod == "all" then send("^a")
+   if NOT $skiprip then
+	   ; Select all tracks
+	   if $extractmethod == "all" then send("^a")
 
-	; Rip complete image if selected
-	if $ripimage then
-		send("!aic")
-		winwait("Save Waveform")
-		send('!n' & $outputdir & '\' & $artist & ' - ' & $album & ' (AutoFLAC)' & '!s')
-		winwait("Analyzing", "", 10)
-		while winexists("Analyzing")
-			sleep(500)
+	   ; Rip complete image if selected
+	   if $ripimage then
+		   send("!aic")
+		   winwait("Save Waveform")
+		   send('!n' & $outputdir & '\' & $artist & ' - ' & $album & ' (AutoFLAC)' & '!s')
+		   winwait("Analyzing", "", 10)
+		   while winexists("Analyzing")
+			   sleep(500)
+		   wend
+		   winactivate($eactitle)
+
+	   ; Otherwise rip to individual tracks
+	   else
+		   if $createcue then
+			   send("!as{DOWN 2}{ENTER}")
+			   winwait("Analyzing", "", 10)
+			   while winexists("Analyzing")
+				   sleep(500)
+			   wend
+			   winactivate($eactitle)
+		   endif
+
+		   ; Rip tracks
+		   opt("WinTitleMatchMode", 2)
+		   if $testandcopy then
+			   send("+{F6}")
+		   else
+			   send("+{F5}")
+		   endif
+	   endif
+
+	   ; Wait for ripping to complete
+	   winwait("Extracting Audio Data", "", 5)
+	   if $ripimage then
+		   local $button = 2
+		   dircreate($ripdir)
+	   else
+		   local $button = 3
+	   endif
+	   while controlgettext("Extracting Audio Data", '', 'Button' & $button) == "Cancel"
+		   if $lowpriority then
+			   if processexists("flac.exe") then processsetpriority("flac.exe", 0)
+		   endif
+		   sleep(500)
+	   wend
+
+	   ; Check status for erros
+	   controlclick("Extracting Audio Data", '', 'Button' & $button)
+	   sleep(200)
+	   winactivate("Status and Error Messages")
+	   sleep(200)
+	   dim $i, $track, $past
+	   while 1
+		   controlcommand("Status and Error Messages", '', 'ListBox1', 'SetCurrentSelection', $i)
+		   if @error then exitloop
+		   $line = controlcommand("Status and Error Messages", '', 'ListBox1', 'GetCurrentSelection')
+		   if stringleft($line, 5) == "Track" then
+			   $track = stringtrimleft($line, stringinstr($line, " ", 0, -1))
+		   endif
+		   if stringinstr($line, "Suspicious") then
+			   if $track <> $past then
+				   $warning &= $track & ", "
+				   $past = $track
+			   endif
+		   endif
+		   $i = $i + 1
+	   wend
+	   controlclick("Status and Error Messages", '', 'Button1')
+	   winactivate($eactitle)
+
+	   ; Update cue sheet for compressed tracks
+	   if $createcue then
+		   if $ripimage then
+			   $old = fileopen($outputdir & "\" & $artist & " - " & $album & " (AutoFLAC).cue", 0)
+			   $new = fileopen($ripdir & "\" & $imgname & $metapost & ".cue", 2)
+		   else
+			   $old = fileopen($outputdir & "\" & $album & ".cue", 0)
+			   $new = fileopen($ripdir & "\" & $metapre & $album & ".cue", 2)
+		   endif
+		   $line = filereadline($old)
+		   do
+			   if stringleft($line, 5) == "TITLE" then
+				   $line = 'TITLE "' & $album & $metapost & '"'
+			   elseif stringinstr($line, "FILE ", 1) AND NOT $ripimage then
+				   $temp = stringtrimleft($line, stringinstr($line, '\', 0, -1))
+				   $tracknum = stringleft($temp, stringinstr($temp, '-')-1)
+				   $temp = stringleft($temp, stringinstr($temp, '.', 0, -1)-1)
+				   $trackname = stringtrimleft($temp, stringlen($tracknum)+1)
+				   if $multidisc then $tracknum = $discnum & $tracknum
+				   $line = 'FILE "' & $tracknum & '-' & $trackname & '.flac" WAVE'
+			   elseif stringinstr($line, "FILE ", 1) AND $ripimage then
+				   $line = 'FILE "' & $imgname & $metapost & '.flac" WAVE'
+			   endif
+			   filewriteline($new, $line)
+			   $line = filereadline($old)
+		   until @error
+		   fileclose($new)
+		   fileclose($old)
+		   if $ripimage then
+			   filerecycle($outputdir & "\" & $artist & " - " & $album & " (AutoFLAC).cue")
+		   else
+			   filerecycle($outputdir & "\" & $album & ".cue")
+		   endif
+	   endif
+
+	   ; Process log file
+	   if $createlog then
+		   if $ripimage then
+			   filemove($outputdir & "\" & $album & ".log", $ripdir & "\" & $imgname & $metapost & ".log", 1)
+		   else
+			   filemove($outputdir & "\" & $album & ".log", $ripdir & "\" & $metapre & $album & $metapost & ".log", 1)
+
+			   ; Check for Test and Copy errors
+			   if $testandcopy then
+				   dim $track, $testcrc, $copycrc
+				   $infile = fileopen($ripdir & '\' & $metapre & $album & $metapost & '.log', 0)
+				   $line = filereadline($infile)
+				   do
+					   ; Compare Test and Copy CRCs; flag if mismatch found
+					   if stringleft($line, 5) = "Track" then
+						   $track = stringtrimleft($line, stringinstr($line, ' ', 0, -1))
+					   endif
+					   if stringinstr($line, "Test CRC") then
+						   $testcrc = stringtrimleft($line, stringinstr($line, ' ', 0, -1))
+					   endif
+					   if stringinstr($line, "Copy CRC") then
+						   $copycrc = stringtrimleft($line, stringinstr($line, ' ', 0, -1))
+						   if $copycrc <> $testcrc then $tcwarning &= $track & ", "
+						   dim $track, $testcrc, $copycrc
+					   endif
+					   $line = filereadline($infile)
+				   until @error
+				   fileclose($infile)
+			   endif
+		   endif
+	   else
+		   filerecycle($outputdir & "\" & $album & ".log")
+	   endif
+
+	   ; Wait for track compression to complete
+	   while processexists("flac.exe")
+		   sleep(1000)
+		   if processexists("flac.exe") then
+			   if $lowpriority then processsetpriority("flac.exe", 0)
+		   else
+			   sleep(4000)
+		   endif
 		wend
-		winactivate($eactitle)
-
-	; Otherwise rip to individual tracks
-	else
-		if $createcue then
-			send("!as{DOWN 2}{ENTER}")
-			winwait("Analyzing", "", 10)
-			while winexists("Analyzing")
-				sleep(500)
-			wend
-			winactivate($eactitle)
-		endif
-
-		; Rip tracks
-		opt("WinTitleMatchMode", 2)
-		if $testandcopy then
-			send("+{F6}")
-		else
-			send("+{F5}")
-		endif
-	endif
-
-	; Wait for ripping to complete
-	winwait("Extracting Audio Data", "", 5)
-	if $ripimage then
-		local $button = 2
-		dircreate($ripdir)
-	else
-		local $button = 3
-	endif
-	while controlgettext("Extracting Audio Data", '', 'Button' & $button) == "Cancel"
-		if $lowpriority then 
-			if processexists("flac.exe") then processsetpriority("flac.exe", 0)
-		endif
-		sleep(500)
-	wend
-
-	; Check status for erros
-	controlclick("Extracting Audio Data", '', 'Button' & $button)
-	sleep(200)
-	winactivate("Status and Error Messages")
-	sleep(200)
-	dim $i, $track, $past
-	while 1
-		controlcommand("Status and Error Messages", '', 'ListBox1', 'SetCurrentSelection', $i)
-		if @error then exitloop
-		$line = controlcommand("Status and Error Messages", '', 'ListBox1', 'GetCurrentSelection')
-		if stringleft($line, 5) == "Track" then
-			$track = stringtrimleft($line, stringinstr($line, " ", 0, -1))
-		endif
-		if stringinstr($line, "Suspicious") then
-			if $track <> $past then
-				$warning &= $track & ", "
-				$past = $track
-			endif
-		endif
-		$i = $i + 1
-	wend
-	controlclick("Status and Error Messages", '', 'Button1')
-	winactivate($eactitle)
-
-	; Update cue sheet for compressed tracks
-	if $createcue then
-		if $ripimage then
-			$old = fileopen($outputdir & "\" & $artist & " - " & $album & " (AutoFLAC).cue", 0)
-			$new = fileopen($ripdir & "\" & $imgname & $metapost & ".cue", 2)
-		else
-			$old = fileopen($outputdir & "\" & $album & ".cue", 0)
-			$new = fileopen($ripdir & "\" & $metapre & $album & ".cue", 2)
-		endif
-		$line = filereadline($old)
-		do
-			if stringleft($line, 5) == "TITLE" then
-				$line = 'TITLE "' & $album & $metapost & '"'
-			elseif stringinstr($line, "FILE ", 1) AND NOT $ripimage then
-				$temp = stringtrimleft($line, stringinstr($line, '\', 0, -1))
-				$tracknum = stringleft($temp, stringinstr($temp, '-')-1)
-				$temp = stringleft($temp, stringinstr($temp, '.', 0, -1)-1)
-				$trackname = stringtrimleft($temp, stringlen($tracknum)+1)
-				if $multidisc then $tracknum = $discnum & $tracknum
-				$line = 'FILE "' & $tracknum & '-' & $trackname & '.flac" WAVE'
-			elseif stringinstr($line, "FILE ", 1) AND $ripimage then
-				$line = 'FILE "' & $imgname & $metapost & '.flac" WAVE'
-			endif
-			filewriteline($new, $line)
-			$line = filereadline($old)
-		until @error
-		fileclose($new)
-		fileclose($old)
-		if $ripimage then
-			filerecycle($outputdir & "\" & $artist & " - " & $album & " (AutoFLAC).cue")
-		else
-			filerecycle($outputdir & "\" & $album & ".cue")
-		endif
-	endif
-
-	; Process log file
-	if $createlog then
-		if $ripimage then
-			filemove($outputdir & "\" & $album & ".log", $ripdir & "\" & $imgname & $metapost & ".log", 1)
-		else
-			filemove($outputdir & "\" & $album & ".log", $ripdir & "\" & $metapre & $album & $metapost & ".log", 1)
-
-			; Check for Test and Copy errors
-			if $testandcopy then
-				dim $track, $testcrc, $copycrc
-				$infile = fileopen($ripdir & '\' & $metapre & $album & $metapost & '.log', 0)
-				$line = filereadline($infile)
-				do
-					; Compare Test and Copy CRCs; flag if mismatch found
-					if stringleft($line, 5) = "Track" then
-						$track = stringtrimleft($line, stringinstr($line, ' ', 0, -1))
-					endif
-					if stringinstr($line, "Test CRC") then
-						$testcrc = stringtrimleft($line, stringinstr($line, ' ', 0, -1))
-					endif
-					if stringinstr($line, "Copy CRC") then
-						$copycrc = stringtrimleft($line, stringinstr($line, ' ', 0, -1))
-						if $copycrc <> $testcrc then $tcwarning &= $track & ", "
-						dim $track, $testcrc, $copycrc
-					endif
-					$line = filereadline($infile)
-				until @error
-				fileclose($infile)
-			endif
-		endif
-	else
-		filerecycle($outputdir & "\" & $album & ".log")
-	endif
-
-	; Wait for track compression to complete
-	while processexists("flac.exe")
-		sleep(1000)
-		if processexists("flac.exe") then
-			if $lowpriority then processsetpriority("flac.exe", 0)
-		else
-			sleep(4000)
-		endif
-	wend
+   endif
 
 	; Move image to correct directory, fix tags, and import cuesheet
 	if $ripimage then
@@ -765,7 +768,7 @@ func ExtractSetup()
 	GUICtrlCreateGroup("", -99, -99, 1, 1)
 
 	; Rip options
-	GUICtrlCreateGroup($name & " Rip Options", 290, 80, 150, 145)
+	GUICtrlCreateGroup($name & " Rip Options", 290, 80, 150, 165)
 	GUICtrlCreateLabel("Use Encoder: ", 295, 101, -1, 15)
 	local $enc = GUICtrlCreateCombo("", 365, 97, 70, 20, $CBS_DROPDOWNLIST)
 	GUICtrlSetTip(-1, "Specifies the encoder to be used by AutoFLAC")
@@ -781,6 +784,8 @@ func ExtractSetup()
 	local $wave = GUICtrlCreateInput($notifywav, 315, 200, 90, 20)
 	GUICtrlSetTip(-1, "The WAVE file that should be played after ripping process is complete")
 	local $wavebut = GUICtrlCreateButton("...", 410, 200, 25, 20)
+	local $skipbut = GUICtrlCreateCheckBox("S&kip ripping", 295, 220, -1, 20)
+	GUICtrlSetTip(-1, "Check this if you wish to disable/skip the actual ripping, and only run AutoFLAC's extra processing." & @CRLF & "Handy if you've already ripped a cd 'normally'")
 	GUICtrlCreateGroup("", -99, -99, 1, 1)
 
 	; Output Options
@@ -879,6 +884,9 @@ func ExtractSetup()
 	else
 		GUICtrlSetState($wave, $GUI_DISABLE)
 		GUICtrlSetState($wavebut, $GUI_DISABLE)
+	endif
+	if $skiprip then
+		GUICtrlSetState($skipbut, $GUI_CHECKED)
 	endif
 	GUICtrlSetState($ok, $GUI_DEFBUTTON)
 
@@ -1130,6 +1138,11 @@ func ExtractSetup()
 				else
 					$deletecue = 0
 				endif
+				if GUICtrlRead($skipbut) == $GUI_CHECKED then
+					$skiprip = 1
+				else
+					$skiprip = 0
+				endif
 
 				; Save preferences and begin extraction
 				SavePrefs()
@@ -1196,6 +1209,7 @@ func ReadPrefs()
 	$value = regread($regprefs, "writetempdir")
 	if $value <> '' then $writetempdir = $value
 	$multidisc = 0
+	$skiprip = 0
 endfunc
 
 ; Function to save AutoFLAC preferences
