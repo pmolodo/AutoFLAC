@@ -318,14 +318,21 @@ func ExtractCD()
 	   endif
 
 	   ; Wait for ripping to complete
-	   winwait("Extracting Audio Data", "", 5)
+	   local $extractWin = winwait("Extracting Audio Data", "", 5)
+	   if NOT $extractWin then
+		   msgbox(48, $title, "Error: Audio extraction not started")
+		   exit
+	   endif
 	   if $ripimage then
 		   local $button = 2
 		   dircreate($ripdir)
 	   else
 		   local $button = 3
 	   endif
-	   while controlgettext("Extracting Audio Data", '', 'Button' & $button) == "Cancel"
+
+	   ; For some reason, this loop seems to sometimes exit even though ripping not finished
+	   ; yet - usually seems to be after the first track finishes...?
+	   while controlgettext($extractWin, '', 'Button' & $button) == "Cancel"
 		   if $lowpriority then
 			   if processexists("flac.exe") then processsetpriority("flac.exe", 0)
 		   endif
@@ -333,7 +340,7 @@ func ExtractCD()
 	   wend
 
 	   ; Check status for erros
-	   controlclick("Extracting Audio Data", '', 'Button' & $button)
+	   controlclick($extractWin, '', 'Button' & $button)
 	   sleep(200)
 	   winactivate("Status and Error Messages")
 	   sleep(200)
