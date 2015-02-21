@@ -61,8 +61,8 @@ if not @error then
 else
 	global $outputdir = @mydocumentsdir & "\Music"
 endif
-global $sepscheme = "%I\%A\%C"
-global $imgscheme = "%A - %C"
+global $sepscheme = "%genre%\%albumartist%\%albumtitle%"
+global $imgscheme = "%albumartist% - %albumtitle%"
 global $flac = "flac.exe"
 global $metaflac = "metaflac.exe"
 ;global $md5sum = "md5sum.exe"
@@ -715,11 +715,15 @@ endfunc
 func ExtractSetup()
 	local $options = "You may use the following parameters to customize your output directory and filename."
 	$options &= @CRLF & "Anything not included in the following list of options will be treated as static text."
-	$options &= @CRLF & @CRLF & "%D/%A" & @TAB & "Album Artist"
-	$options &= @CRLF & "%C" & @TAB & "Album Title"
-	$options &= @CRLF & "%Y" & @TAB & "Album Year"
-	$options &= @CRLF & "%I" & @TAB & "Album Genre"
-	$options &= @CRLF & "%B" & @TAB & "FreeDB Category"
+	$options &= @CRLF
+	$options &= @CRLF & "%albumtitle%" & @TAB & "Album Title"
+	$options &= @CRLF & "%albumartist%" & @TAB & "Album Artist"
+	$options &= @CRLF & "%albuminterpret%" & @TAB & "Album Performer"
+	$options &= @CRLF & "%year%" & @TAB & @TAB & "Album Year"
+	$options &= @CRLF & "%genre%" & @TAB & @TAB & "Album Genre"
+	$options &= @CRLF & "%cddbtype%" & @TAB & "FreeDB Category"
+	$options &= @CRLF & "%albumcomposer%" & @TAB & "Album Composer"
+	$options &= @CRLF & "%comment%" & @TAB & "Comment"
 
 	; Create GUI
 	ReadPrefs()
@@ -970,7 +974,7 @@ func ExtractSetup()
 				$message &= @CRLF & "This directory structure will be created below the ""Output base"", and is"
 				$message &= @CRLF & "modelled after EAC's variable naming scheme.  Unlike EAC, however,"
 				$message &= @CRLF & "you should only specify the directory structure, excluding file names."
-				$message &= @CRLF & @CRLF & "The default scheme is ""%I\%A\%C"", which translates to ""Genre\Artist\Album."""
+				$message &= @CRLF & @CRLF & "The default scheme is ""%genre%\%albumartist%\%albumtitle%"""
 				$message &= @CRLF & @CRLF & "Note: This MUST match EAC's naming scheme, minus the filename portion."
 				$message &= @CRLF & @CRLF & $options
 				msgbox(64, $title, $message)
@@ -980,7 +984,7 @@ func ExtractSetup()
 			case $action == $imgschemebut
 				local $message = "The ""Image scheme"" field is used instead of ""Output scheme"" when ripping to an image."
 				$message &= @CRLF & "The same options are available, but this field requires that the filename be set as well."
-				$message &= @CRLF & @CRLF & "The default image scheme is ""%A - %C"", which translates to ""Artist - Album."""
+				$message &= @CRLF & @CRLF & "The default image scheme is ""%albumartist% - %albumtitle%"""
 				$message &= @CRLF & @CRLF & $options
 				msgbox(64, $title, $message)
 				GUICtrlSetState($imgschemefield, $GUI_FOCUS)
@@ -1342,12 +1346,14 @@ endfunc
 
 ; Function to replace variables in naming scheme
 func VarNameReplace($str)
-	$str = stringreplace($str, "%D", $artist)
-	$str = stringreplace($str, "%A", $artist)
-	$str = stringreplace($str, "%Y", $year)
-	$str = stringreplace($str, "%C", $album)
-	$str = stringreplace($str, "%I", $genre)
-	$str = stringreplace($str, "%B", $dbtype)
+	$str = stringreplace($str, "%albumtitle%", $album)
+	$str = stringreplace($str, "%albumartist%", $artist)
+	$str = stringreplace($str, "%albuminterpret%", $performer)
+	$str = stringreplace($str, "%year%", $year)
+	$str = stringreplace($str, "%genre%", $genre)
+	$str = stringreplace($str, "%cddbtype%", $dbtype)
+	$str = stringreplace($str, "%albumcomposer%", $cdcomposer)
+	$str = stringreplace($str, "%comment%", $comment)
 	return $str
 endfunc
 
