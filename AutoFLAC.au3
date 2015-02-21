@@ -576,7 +576,7 @@ func ExtractCD()
 		$prompt = msgbox(33, $title, "Extraction complete with 0 detected errors." & @CRLF & @CRLF & "Would you like to extract another CD?")
 	endif
 	if $prompt <> 1 then
-		processclose("eac.exe")
+		; processclose("eac.exe")
 		return 0
 	else
 		return 1
