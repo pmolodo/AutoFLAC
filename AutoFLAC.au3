@@ -19,7 +19,8 @@ global $title = $name & ' ' & $version
 global $eactitle = "Exact Audio Copy"
 global $regprefs = "HKCU\Software\" & $name
 global $write = 0
-global $artist, $year, $album, $genre, $dbtype, $cuefile, $warning, $tcwarning
+global $album, $artist, $performer, $year, $genre, $dbtype, $cdcomposer, $comment
+global $cuefile, $warning, $tcwarning
 
 ; Extract options
 global $extractmethod = 'all'
@@ -244,12 +245,15 @@ func ExtractCD()
 	winactivate($eactitle)
 
 	; Get CD info
-	$artist = SanitizeChars(controlgettext($eactitle, '', 'myedit2'))
-	if $artist == "Various" then $artist = "Various Artists"
-	$album = SanitizeChars(controlgettext($eactitle, '', 'myedit1'))
+	$album = SanitizeChars(controlgettext($eactitle, '', 'myedit2'))
+	$artist = SanitizeChars(controlgettext($eactitle, '', 'myedit3'))
+	;if $artist == "Various" then $artist = "Various Artists"
+	$performer = SanitizeChars(controlgettext($eactitle, '', 'myedit4'))
+	$year = SanitizeChars(controlgettext($eactitle, '', 'myedit5'))
 	$genre = SanitizeChars(controlgettext($eactitle, '', 'Edit1'))
-	$year = SanitizeChars(controlgettext($eactitle, '', 'myedit3'))
 	$dbtype = SanitizeChars(controlgettext($eactitle, '', 'mycombo2'))
+	$cdcomposer = SanitizeChars(controlgettext($eactitle, '', 'myedit6'))
+	$comment = SanitizeChars(controlgettext($eactitle, '', 'myedit7'))
 	if $multidisc then
 		$metapre = $discnum & "00-"
 		$metapost = " (Disc " & $discnum & ')'
